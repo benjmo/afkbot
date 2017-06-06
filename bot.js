@@ -22,8 +22,8 @@ client.on('message', (message) => {
 
   const args = message.content.split(' ').slice(1);
 
-  if (message.content.startsWith(config.prefix + 'ping')) {
-    message.channel.send('pong!');
+  if (message.content.startsWith(config.prefix + 'taebak')) {
+    message.channel.send('http://i.imgur.com/CJN1lXh.gifv');
   } else if (message.content.startsWith(config.prefix + 'foo')) {
     message.channel.send('bar!');
   } 

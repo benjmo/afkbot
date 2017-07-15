@@ -4,8 +4,11 @@
  * Developed by Benjamin Mo
  */
 
+
+
 const Discord = require('discord.js');
-const config = require('./config.json');
+const config = require('./config_dev.json');
+const status = require('./user_status.json');
 const fs = require('fs');
 
 const client = new Discord.Client();
@@ -24,11 +27,32 @@ client.on('message', (message) => {
 
   if (message.content.startsWith(config.prefix + 'taebak')) {
     message.channel.send('http://i.imgur.com/CJN1lXh.gifv');
-  } else if (message.content.startsWith(config.prefix + 'foo')) {
-    message.channel.send('bar!');
-  } 
+  } else if (message.content.startsWith(config.prefix + 'threaten')) {
+    message.channel.send('https://gfycat.com/ConstantIdleAmericanrobin');
+  } else if (message.content.startsWith(config.prefix + 'status')) {
+    statusHandler(message);
+  }
 
-  // Owner-only commands below
+  // Admin + owner only commands
+  if (message.author.id !== config.ownerID && 
+      !message.member.roles.has(config.adminRole)) return;
+
+  if (message.content.startsWith(config.prefix + 'log_channel') || 
+             message.content.startsWith(config.prefix + 'lc')) {
+    // Change log channel
+    config.logChannelID = message.channel.id;
+    fs.writeFile('./config.json', JSON.stringify(config, null, 2), (err) => { if(err) console.error(err) });
+    message.channel.send("Log channel changed to **" + message.channel.name + "**");
+  
+  } else if (message.content.startsWith(config.prefix + 'main_channel') || 
+             message.content.startsWith(config.prefix + 'mc')) {
+    // Change main channel (#general in most servers)
+    config.mainChannelID = message.channel.id;
+    fs.writeFile('./config.json', JSON.stringify(config, null, 2), (err) => { if(err) console.error(err) });
+    message.channel.send("Main channel changed to **" + message.channel.name + "**");
+  }
+
+  // Owner-only commands
   if(message.author.id !== config.ownerID) return;
 
   if (message.content.startsWith(config.prefix + 'eval')) {
@@ -44,25 +68,20 @@ client.on('message', (message) => {
     } catch (err) {
       message.channel.send(`\`ERROR\` \`\`\`xl\n${clean(err)}\n\`\`\``);
     }
+
   } else if (message.content.startsWith(config.prefix + 'prefix')) {
     // Change prefix command
     let newPrefix = message.content.split(' ').slice(1, 2)[0];
     config.prefix = newPrefix;
     fs.writeFile('./config.json', JSON.stringify(config, null, 2), (err) => { if(err) console.error(err) });
-    
     message.channel.send("Prefix changed to '" + config.prefix + "'.");
-  } else if (message.content.startsWith(config.prefix + 'log_channel') || 
-             message.content.startsWith(config.prefix + 'lc')) {
-    // Change log channel
-    config.logChannelID = message.channel.id;
+
+  } else if (message.content.startsWith(config.prefix + 'set_admin_role')) {
+    // Set role for admin privileges for the bot
+    let newAdminRole = message.content.split(' ').slice(1, 2)[0];
+    config.adminRole = newAdminRole;
     fs.writeFile('./config.json', JSON.stringify(config, null, 2), (err) => { if(err) console.error(err) });
-    message.channel.send("Log channel changed to **" + message.channel.name + "**");
-  } else if (message.content.startsWith(config.prefix + 'main_channel') || 
-             message.content.startsWith(config.prefix + 'mc')) {
-    // Change main channel (#general in most servers)
-    config.mainChannelID = message.channel.id;
-    fs.writeFile('./config.json', JSON.stringify(config, null, 2), (err) => { if(err) console.error(err) });
-    message.channel.send("Main channel changed to **" + message.channel.name + "**");
+    message.channel.send("Admin role for AFKBot changed to '" + config.adminRole + "'.");
   }
 });
 
@@ -142,12 +161,61 @@ client.on('guildMemberRemove', (member) => {
   );
 });
 
+// Assumes message content starts with 'prefix + status'
+// Example inputs:
+// status                       : see status of yourself
+// status set <New status here> : set new status for yourself
+// status @username             : see status of specified user
+// status list                  : see status of everyone on the server
+function statusHandler(message) {
+  var re = new RegExp("^\\" + config.prefix + "status","i"); // double backslash to escape prefix
+  var content = message.content.replace(re, "").trim();
+  if (content.match(/^ *$/)) {
+    // Display status of self
+    message.channel.send("<@" + message.author.id + "> " + getStatus(message.author.id));
+  } else if (content.match(/^set/)) {
+    // Set status of self
+    content = content.replace(/^set/, "").trim();
+    setStatus(message.author.id, content);
+    message.channel.send("<@" + message.author.id + "> " + "Status set to \"" + content + "\"");
+  } else if (content.match(/^<@[0-9]+>/)) {
+    // Display status of specified user
+    var userid = content.replace(/[^0-9]/g, "");
+    message.channel.send(getStatus(userid));
+  } else if (content.match(/^list/)) {
+    // List status of all users in guild
+    var statusString = "";
+    for (const member of message.guild.members) {
+      if (!status[member[0]]) { continue; }
+      statusString += member[1].displayName + " : " + status[member[0]].note + "\n";
+    }
+    message.channel.send(statusString);
+  }
+}
+
+function getStatus(userid) {
+  if (!status[userid].note) {
+    return ("Status not defined.");
+  }
+  return status[userid].note;
+}
+
+function setStatus(userid, note) {
+  if (!status[userid]) {
+    status[userid] = {};
+  }
+  status[userid].note = note;
+  fs.writeFile('./user_status.json', JSON.stringify(status, null, 2), (err) => { if(err) console.error(err) });
+}
+
 function clean(text) {
   if (typeof(text) === 'string')
     return text.replace(/`/g, '`' + String.fromCharCode(8203)).replace(/@/g, '@' + String.fromCharCode(8203));
   else
       return text;
 }
+
+//TODO: check presence of channels in config before execute
 
 // Error logs
 client.on('error', (e) => console.error(e));

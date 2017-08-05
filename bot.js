@@ -7,7 +7,7 @@
 
 
 const Discord = require('discord.js');
-const config = require('./config_dev.json');
+const config = require('./config.json');
 const status = require('./user_status.json');
 const fs = require('fs');
 
@@ -34,8 +34,17 @@ client.on('message', (message) => {
   }
 
   // Admin + owner only commands
-  if (message.author.id !== config.ownerID && 
-      !message.member.roles.has(config.adminRole)) return;
+  console.log(message.member.roles);
+  if (message.author.id !== config.ownerID) {
+    var admin = false;
+    for (var role of message.member.roles) {
+      if (role[1].name == config.adminRole) {
+        admin = true;
+        break;
+      }
+    }
+    if (!admin) return;
+  }
 
   if (message.content.startsWith(config.prefix + 'log_channel') || 
              message.content.startsWith(config.prefix + 'lc')) {
@@ -194,7 +203,7 @@ function statusHandler(message) {
 }
 
 function getStatus(userid) {
-  if (!status[userid].note) {
+  if (!status[userid] || !status[userid].note) {
     return ("Status not defined.");
   }
   return status[userid].note;
